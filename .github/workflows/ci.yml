@@ -1,0 +1,65 @@
+name: Build Tauri App for Windows
+
+on: push
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+
+    - uses: pnpm/action-setup@v3
+      name: Install pnpm
+      with:
+        version: 8
+        run_install: false
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+    
+    - uses: actions/cache@v4
+      name: Setup pnpm cache
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - uses: actions/cache@v4
+      name: Set up cargo cache
+      with:
+        path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/       
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build Tauri app for Windows
+      run: |
+        pnpm tauri build
+    #     rm -rf src-tauri/target/release/build
+    #     rm -rf src-tauri/target/release/deps
+    #     rm -rf src-tauri/target/release/.fingerprint
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+          name: easy-presenter-installer-portable
+          path: |
+            src-tauri\target\release\bundle\msi\easy-presenter_0.0.0_x64_en-US.msi
+            src-tauri\target\release\bundle\nsis\easy-presenter_0.0.0_x64-setup.exe
